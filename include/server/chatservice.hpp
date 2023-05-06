@@ -10,6 +10,7 @@
 #include "groupmodel.hpp"
 #include "json.hpp"
 #include "offlinemessagemodel.hpp"
+#include "redis.hpp"
 #include "usermodel.hpp"
 
 using namespace std;
@@ -37,11 +38,13 @@ public:
 
     void groupChat(const TcpConnectionPtr& conn, json& js, Timestamp timestamp);
 
-
+    void loginOut(const TcpConnectionPtr& conn, json& js, Timestamp timestamp);
 
     auto getHandler(int msgid) -> MsgHandler;
 
     void clientCloseException(const TcpConnectionPtr& conn);
+
+    void handleRedisSubscribeMessage(int, std::string);
 
     void reset();
 private:
@@ -57,4 +60,6 @@ private:
     OfflineMsgModel offline_msg_model_;
     FriendModel friend_model_;
     GroupModel group_model_;
+
+    Redis redis_;
 };

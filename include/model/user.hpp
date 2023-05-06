@@ -12,7 +12,7 @@ public:
     void setId(int id) { this->id_ = id; }
     void setName(const std::string& name) { this->name_ = name; }
     void setPwd(const std::string& pwd) { this->pwd_ = pwd; }
-    void setState(UserState state) { this->state_ = state; }
+    void setState(const UserState& state) { this->state_ = state; }
 
     auto getId() -> int const  { return id_; }
     auto getName() -> std::string const  { return name_; }

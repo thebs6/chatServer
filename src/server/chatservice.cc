@@ -27,14 +27,30 @@ ChatService::ChatService() {
     msgHandlerMap_.insert({ EnMsgType::REG_MSG, std::bind(&ChatService::reg, this, _1, _2, _3) });
     msgHandlerMap_.insert({ EnMsgType::ONE_CHAT_MSG, std::bind(&ChatService::oneChat, this, _1, _2, _3) });
     msgHandlerMap_.insert({ EnMsgType::ADD_FRIEND_MSG, std::bind(&ChatService::addFriend, this, _1, _2, _3) });
+    msgHandlerMap_.insert({ EnMsgType::CREATE_GROUP_MSG, std::bind(&ChatService::createGroup, this, _1, _2, _3) });
+    msgHandlerMap_.insert({ EnMsgType::ADD_GROUP_MSG, std::bind(&ChatService::addGroup, this, _1, _2, _3) });
+    msgHandlerMap_.insert({ EnMsgType::GROUP_CHAT_MSG, std::bind(&ChatService::groupChat, this, _1, _2, _3) });
+    msgHandlerMap_.insert({ EnMsgType::LOGINOUT_MSG, std::bind(&ChatService::loginOut, this, _1, _2, _3) });
+
+    if(redis_.connect()) {
+        redis_.init_notify_handler(std::bind(&ChatService::handleRedisSubscribeMessage, this, _1, _2));
+    }
 }
 
+void ChatService::handleRedisSubscribeMessage(int userId, std::string msg) {
+    std::lock_guard<std::mutex> lock(conn_mutex_);
+    auto it = user_conn_.find(userId);
+    if(it != user_conn_.end()) {
+        it->second->send(msg);
+    }
 
+    offline_msg_model_.insert(userId, msg);
+}
 
 void ChatService::login(const TcpConnectionPtr& conn, json& js, Timestamp timestamp) {
     LOG_INFO << "login";
     int id = js["id"];
-    std::string pwd = js["pwd"];
+    std::string pwd = js["password"];
 
     User user = user_model_.query(id);
     json response;
@@ -59,6 +75,8 @@ void ChatService::login(const TcpConnectionPtr& conn, json& js, Timestamp timest
         lock_guard<mutex> lock(conn_mutex_);
         user_conn_.insert({id, conn});
     }
+
+    redis_.subscribe(id);
 
     user.setState(UserState::ONLINE);
     user_model_.updateState(user);
@@ -128,6 +146,11 @@ void ChatService::oneChat(const TcpConnectionPtr& conn, json& js, Timestamp time
         }
     }
 
+    User user = user_model_.query(toid);
+    if(user.getState() == UserState::ONLINE) {
+        redis_.publish(toid, js.dump());
+    }
+
     offline_msg_model_.insert(toid, js.dump());
     
 }
@@ -153,13 +176,13 @@ auto ChatService::getHandler(int msgid) -> MsgHandler {
 void ChatService::createGroup(const TcpConnectionPtr& conn, json& js, Timestamp timestamp) {
 
     int userid = js["id"].get<int>();
-    std::string groupName = js["groupName"];
-    std::string groupDesc = js["groupDesc"];
+    std::string groupName = js["groupname"];
+    std::string groupDesc = js["groupdesc"];
 
     Group group(-1, groupName, groupDesc);
 
     if (group_model_.createGroup(group)) {
-        group_model_.addGroup(userid, group.getId(), GroupUserRoleToString(GroupUserRole::CREATER));
+        group_model_.addGroup(userid, group.getId(), GroupUserRoleToString(GroupUserRole::CREATOR));
     }
 }
 
@@ -181,6 +204,10 @@ void ChatService::groupChat(const TcpConnectionPtr& conn, json& js, Timestamp ti
             // 转发群消息
             it->second->send(js.dump());
         } else {
+            User user = user_model_.query(id);
+            if(user.getState() == UserState::ONLINE) {
+                redis_.publish(id, js.dump());
+            }
             offline_msg_model_.insert(id, js.dump());
         }
     }
@@ -199,9 +226,28 @@ void ChatService::clientCloseException(const TcpConnectionPtr& conn) {
         }
     }
 
+    redis_.unsubscribe(user.getId());
+
     if(user.getId() != -1) {
         user.setState(UserState::OFFLINE);
         user_model_.updateState(user);
     }
     
+}
+
+
+void ChatService::loginOut(const TcpConnectionPtr& conn, json& js, Timestamp timestamp) {
+    int user_id = js["id"].get<int>();
+    {
+        std::lock_guard<std::mutex> lock(conn_mutex_);
+        auto it = user_conn_.find(user_id);
+        if(it != user_conn_.end()) {
+            user_conn_.erase(it);
+        }
+    }
+
+    redis_.unsubscribe(user_id);
+
+    User user(user_id, "", "", UserState::OFFLINE);
+    user_model_.updateState(user);
 }

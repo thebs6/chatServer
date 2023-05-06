@@ -3,12 +3,16 @@
 #include <string>
 enum EnMsgType {
     LOGIN_MSG = 1,
+    LOGIN_MSG_ACK,
+    LOGINOUT_MSG,
     REG_MSG,
     REG_MSG_ACK,
-    LOGIN_ACK,
-    LOGIN_MSG_ACK,
     ONE_CHAT_MSG,
     ADD_FRIEND_MSG,
+
+    CREATE_GROUP_MSG, 
+    ADD_GROUP_MSG, 
+    GROUP_CHAT_MSG, 
 };
 
 enum UserState {
@@ -35,21 +39,21 @@ static auto StringToUserState(std::string state) -> UserState {
 
 
 enum GroupUserRole {
-    CREATER = 0,
+    CREATOR = 0,
     NORMAL = 1,
     INVALID_GroupUserRole = -1,
 };
 
 static auto GroupUserRoleToString(GroupUserRole state) -> std::string {
     switch (state) {
-        case GroupUserRole::CREATER: return "creater";
+        case GroupUserRole::CREATOR: return "creator";
         case GroupUserRole::NORMAL: return "normal";
         default: return "INVALID_GroupUserRole";
     }
 }
 
-static auto StringTOGroupUser(std::string state) -> GroupUserRole {
-    if (state == "creater") return GroupUserRole::CREATER;
+static auto StringToGroupUser(std::string state) -> GroupUserRole {
+    if (state == "creator") return GroupUserRole::CREATOR;
     else if (state == "normal") return GroupUserRole::NORMAL;
     return INVALID_GroupUserRole;
 }
