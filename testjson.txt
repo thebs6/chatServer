@@ -1,0 +1,9 @@
+{"msgid":1, "id":22, "pwd":"123456"}
+{"msgid":1, "id":19, "pwd":"123456"}
+
+
+{"msgid":6, "fromid":22, "toid": 19, "msg": "fuck all"}
+{"msgid":6, "fromid":19, "toid": 22, "msg": "zaima zaima"}
+
+{"msgid":7, "id":22, "friendid":19}
+{"msgid":7, "id":22, "friendid":13}
